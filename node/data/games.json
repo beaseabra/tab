@@ -1,0 +1,146 @@
+{
+  "b0ebb9da5d03649e576a06bcc54f6b1c": {
+    "gameID": "b0ebb9da5d03649e576a06bcc54f6b1c",
+    "group": 81,
+    "size": 9,
+    "players": {
+      "beatriz88": "Blue"
+    },
+    "turn": "beatriz88",
+    "initial": "beatriz88",
+    "pieces": [
+      {
+        "color": "Red",
+        "type": "initial",
+        "inMotion": false,
+        "reachedLastRow": false
+      },
+      {
+        "color": "Red",
+        "type": "initial",
+        "inMotion": false,
+        "reachedLastRow": false
+      },
+      {
+        "color": "Red",
+        "type": "initial",
+        "inMotion": false,
+        "reachedLastRow": false
+      },
+      {
+        "color": "Red",
+        "type": "initial",
+        "inMotion": false,
+        "reachedLastRow": false
+      },
+      {
+        "color": "Red",
+        "type": "initial",
+        "inMotion": false,
+        "reachedLastRow": false
+      },
+      {
+        "color": "Red",
+        "type": "initial",
+        "inMotion": false,
+        "reachedLastRow": false
+      },
+      {
+        "color": "Red",
+        "type": "initial",
+        "inMotion": false,
+        "reachedLastRow": false
+      },
+      {
+        "color": "Red",
+        "type": "initial",
+        "inMotion": false,
+        "reachedLastRow": false
+      },
+      {
+        "color": "Red",
+        "type": "initial",
+        "inMotion": false,
+        "reachedLastRow": false
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "color": "Blue",
+        "type": "initial",
+        "inMotion": false,
+        "reachedLastRow": false
+      },
+      {
+        "color": "Blue",
+        "type": "initial",
+        "inMotion": false,
+        "reachedLastRow": false
+      },
+      {
+        "color": "Blue",
+        "type": "initial",
+        "inMotion": false,
+        "reachedLastRow": false
+      },
+      {
+        "color": "Blue",
+        "type": "initial",
+        "inMotion": false,
+        "reachedLastRow": false
+      },
+      {
+        "color": "Blue",
+        "type": "initial",
+        "inMotion": false,
+        "reachedLastRow": false
+      },
+      {
+        "color": "Blue",
+        "type": "initial",
+        "inMotion": false,
+        "reachedLastRow": false
+      },
+      {
+        "color": "Blue",
+        "type": "initial",
+        "inMotion": false,
+        "reachedLastRow": false
+      },
+      {
+        "color": "Blue",
+        "type": "initial",
+        "inMotion": false,
+        "reachedLastRow": false
+      },
+      {
+        "color": "Blue",
+        "type": "initial",
+        "inMotion": false,
+        "reachedLastRow": false
+      }
+    ],
+    "state": "waiting",
+    "winner": null,
+    "dice": null,
+    "step": "from",
+    "selected": [],
+    "mustPass": null
+  }
+}
