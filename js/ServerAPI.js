@@ -3,7 +3,7 @@
 
 export class ServerAPI {
   /**
-   * @param {string} baseUrl e.g. "http://twserver.alunos.dcc.fc.up.pt:8008"
+   * @param {string} baseUrl e.g. "http://twserver.alunos.dcc.fc.up.pt:8132"
    */
   constructor(baseUrl) {
     this.baseUrl = (baseUrl || "").replace(/\/+$/, "");

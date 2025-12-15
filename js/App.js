@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let localGame = new TabGame(ui);
   
   // ✅ IMPORTANTE: URL do teu servidor Node.js
-  const activeServer = "http://twserver.alunos.dcc.fc.up.pt:8132";
+  const activeServer = "http://twserver.alunos.dcc.fc.up.pt:8132"; // ← para testes locais;
   
   const onlineGame = new OnlineGame(ui, {
     serverUrl: activeServer,

@@ -1,74 +1,23 @@
-// js/OnlineGame.js
-
+// js/OnlineGame.js - VERSÃO FINAL COM SKIP TURN E DADO CORRIGIDOS
 import { Piece } from "./Piece.js";
 import { ServerAPI } from "./ServerAPI.js";
 
-/**
- * Online PvP controller.
- * Server is authoritative: client only sends commands and renders `update`.
- */
 export class OnlineGame {
   constructor(ui, opts = {}) {
     this.ui = ui;
     this.rows = 4;
 
-    this.serverUrl = opts.serverUrl || "http://twserver.alunos.dcc.fc.up.pt:8132";
+    // Ajusta a porta aqui se necessário (8132, 8101, etc.)
+    this.serverUrl = opts.serverUrl || "http://twserver.alunos.dcc.fc.up.pt:8132"; 
     this.group = Number.isInteger(opts.group) ? opts.group : 32;
     this.api = new ServerAPI(this.serverUrl);
 
     this.nick = null;
     this.password = null;
-
     this.gameId = null;
     this.eventSource = null;
 
-    // last known server state
     this.size = 9;
-    this.players = null;   // {nick: "Blue"|"Red"}
-    this.initial = null;   // nick
-    this.turn = null;      // nick
-    this.step = null;      // "from"|"to"|"take"
-    this.dice = null;      // null or {value, keepPlaying, stickValues}
-    this.mustPass = null;  // null | nick | true
-    this.pieces = null;    // array len 4*size
-    this.selected = null;  // array of indices
-    this.lastCell = null;  // number index or object
-    this.winner = null;    // string | null | (never undefined)
-
-    // View preference: rotate board for the non-initial player.
-    this.viewRotated = false;
-
-    // prevent chat spam
-    this._lastStatusMsg = "";
-
-    // roll gating (kept, but not relied on for server rules)
-    this._awaitingMove = false;
-    this._lastRollKeepPlaying = false;
-    this._extraRollReady = false;
-
-    this.handleUpdate = this.handleUpdate.bind(this);
-  }
-
-  // --------- AUTH ---------
-
-  async login(nick, password) {
-    await this.api.register(String(nick), String(password));
-    this.nick = String(nick);
-    this.password = String(password);
-  }
-
-  isLoggedIn() {
-    return !!(this.nick && this.password);
-  }
-
-  // --------- GAME LIFECYCLE ---------
-
-  resetStateForNewGame(size) {
-    this.closeStream();
-
-    this.gameId = null;
-    this.size = size;
-
     this.players = null;
     this.initial = null;
     this.turn = null;
@@ -82,16 +31,49 @@ export class OnlineGame {
 
     this.viewRotated = false;
     this._lastStatusMsg = "";
-
     this._awaitingMove = false;
     this._lastRollKeepPlaying = false;
     this._extraRollReady = false;
+    this._rollValue = null; // <-- CORREÇÃO: Adicionado para controlar a animação do dado (Bug visual)
+
+    this.handleUpdate = this.handleUpdate.bind(this);
+  }
+
+  async login(nick, password) {
+    await this.api.register(String(nick), String(password));
+    this.nick = String(nick);
+    this.password = String(password);
+  }
+
+  isLoggedIn() {
+    return !!(this.nick && this.password);
+  }
+
+  resetStateForNewGame(size) {
+    this.closeStream();
+    this.gameId = null;
+    this.size = size;
+    this.players = null;
+    this.initial = null;
+    this.turn = null;
+    this.step = null;
+    this.dice = null;
+    this.mustPass = null;
+    this.pieces = null;
+    this.selected = null;
+    this.lastCell = null;
+    this.winner = null;
+    this.viewRotated = false;
+    this._lastStatusMsg = "";
+    this._awaitingMove = false;
+    this._lastRollKeepPlaying = false;
+    this._extraRollReady = false;
+    this._rollValue = null; // <-- CORREÇÃO: Reset do valor do dado
   }
 
   async start(size) {
     if (!this.isLoggedIn()) throw new Error("Login required (nick/password)");
 
-    // ✅ IMPORTANT: se já tinhas um jogo, faz leave ANTES de resetar o gameId
     if (this.gameId) {
       try { await this.api.leave(this.nick, this.password, this.gameId); }
       catch { /* ignore */ }
@@ -104,7 +86,7 @@ export class OnlineGame {
 
     const { game } = await this.api.join(this.group, this.nick, this.password, size);
     this.gameId = game;
-    this.ui.addMessage("System", `Online: joined game ${game}. Waiting for opponent / updates...`);
+    this.ui.addMessage("System", `Online: joined game ${game}. Waiting for opponent...`);
 
     this.closeStream();
     this.eventSource = this.api.openUpdateStream(
@@ -113,7 +95,6 @@ export class OnlineGame {
       this.handleUpdate,
       (err) => {
         console.error("SSE error", err);
-        this.ui.addMessage("System", "Online: connection error (update stream).");
       }
     );
   }
@@ -136,8 +117,7 @@ export class OnlineGame {
     }
   }
 
-  // --------- COMMANDS ---------
-
+  // --- FUNÇÃO ROLL ATUALIZADA ---
   async roll() {
     if (!this.gameId) return;
     if (this.winner !== null) return;
@@ -149,7 +129,19 @@ export class OnlineGame {
     if (this.step === "to" || this.step === "take") return;
 
     try {
-      return await this.api.roll(this.nick, this.password, this.gameId);
+      // 1. Faz o pedido ao servidor
+      const data = await this.api.roll(this.nick, this.password, this.gameId);
+      
+      // 2. ATUALIZAÇÃO IMEDIATA:
+      // Lê o dado E o mustPass da resposta para atualizar a UI instantaneamente
+      if (data) {
+        this.handleUpdate({ 
+            dice: data.dice,
+            mustPass: data.mustPass // <--- ISTO É O QUE FAZ O BOTÃO APARECER
+        });
+      }
+      
+      return data;
     } catch (e) {
       this.ui.addMessage("System", e.message || String(e));
     }
@@ -181,7 +173,6 @@ export class OnlineGame {
     if (!this.gameId) return;
     if (this.winner !== null) return;
 
-    // Só podes jogar na tua vez
     if (this.turn && this.turn !== this.nick) {
       this.ui.addMessage("System", "Not your turn.");
       return;
@@ -195,7 +186,6 @@ export class OnlineGame {
 
     const idx = this.uiToServerIndex(r, c);
 
-    // Se estás a escolher destino/captura, só aceita origem ou destinos válidos
     if (isChoosingDestination) {
       let origin = null;
       if (typeof this.lastCell === "number") origin = this.lastCell;
@@ -218,8 +208,6 @@ export class OnlineGame {
     }
   }
 
-  // --------- UPDATE HANDLER ---------
-
   handleUpdate(data) {
     if (!data || typeof data !== "object") return;
     if (data.error) {
@@ -227,34 +215,30 @@ export class OnlineGame {
       return;
     }
 
-    // Segurança extra: se o servidor incluir game e não for o atual, ignora
+    // Se receber update de outro jogo antigo, ignorar
     if (typeof data.game === "string" && this.gameId && data.game !== this.gameId) return;
 
     const prevTurn = this.turn;
     const nextTurn = (typeof data.turn === "string") ? data.turn : this.turn;
     const turnChanged = (prevTurn && nextTurn && prevTurn !== nextTurn);
 
-    // aplica updates base
     if (typeof data.game === "string") this.gameId = data.game;
     if (typeof data.initial === "string") this.initial = data.initial;
     if (typeof data.turn === "string") this.turn = data.turn;
     if (typeof data.step === "string") this.step = data.step;
 
-    // se mudou o turno, limpa estado "stale"
     if (turnChanged) {
       this.mustPass = null;
       this.selected = null;
       this.lastCell = null;
-
       if (!("step" in data)) this.step = "from";
       if (!("dice" in data)) this.dice = null;
-
       this._awaitingMove = false;
       this._lastRollKeepPlaying = false;
       this._extraRollReady = false;
+      // this._rollValue é resetado no render() ou resetStateForNewGame
     }
 
-    // dice updates
     if ("dice" in data) {
       this.dice = data.dice;
       if (this.dice && typeof this.dice.value === "number") {
@@ -269,17 +253,14 @@ export class OnlineGame {
     if (Array.isArray(data.selected)) this.selected = data.selected;
     if ("cell" in data) this.lastCell = data.cell;
     if ("players" in data && data.players) this.players = data.players;
-    
-    // Atualiza winner, mas NÃO acaba o jogo se for null
-    if (typeof data.winner === "string" || data.winner === null) {
-      this.winner = data.winner;
-    }
+    if (typeof data.winner === "string" || data.winner === null) this.winner = data.winner;
 
     if (this.initial) {
       this.viewRotated = (this.nick !== this.initial);
     }
 
     const isChoosingDestination = (this.step === "to" || this.step === "take");
+    // Se o dado for null e não estivermos a escolher destino, reset ao estado de espera
     if (("dice" in data) && data.dice === null && !isChoosingDestination) {
       if (this._awaitingMove) {
         this._awaitingMove = false;
@@ -289,12 +270,10 @@ export class OnlineGame {
 
     this.render();
 
-    // ✅ CORREÇÃO: se o jogo acabou (tem um vencedor definido e NÃO é null), trava tudo
-    if ("winner" in data && data.winner !== null && data.winner !== undefined) {
-      
+    // Se houver vencedor (string), termina
+    if ("winner" in data && typeof data.winner === "string") {
       this.statusOnce(`Game ended. Winner: ${data.winner}`);
-
-      // bloqueia UI/estado para evitar cliques mortos e erros
+      
       this.ui.setRollEnabled(false);
       this.ui.setSkipEnabled(false);
       this.step = "from";
@@ -306,8 +285,6 @@ export class OnlineGame {
       this.closeStream();
     }
   }
-
-  // --------- RENDER ---------
 
   render() {
     const cols = this.size;
@@ -345,20 +322,28 @@ export class OnlineGame {
     const counts = this.countPiecesFromMatrix(matrix);
     this.ui.updateCounts(counts.g, counts.b);
 
+    // --- CORREÇÃO DA ANIMAÇÃO DO DADO ---
     if (this.dice && typeof this.dice.value === "number") {
       const val = this.dice.value;
       const symbol = this.symbolForDice(val);
-      this.ui.animateSticks(symbol, val, false);
+      
+      if (val !== this._rollValue) { // Só anima se o valor mudou
+          this.ui.animateSticks(symbol, val, false);
+          this._rollValue = val; // Marca o valor como animado
+      } else {
+          // Se for o mesmo (re-render), garante que o resultado é visível
+          this.ui.resultEl?.classList.add("show"); 
+      }
     } else {
       this.ui.resultEl?.classList.remove("show");
+      this._rollValue = null; // Reinicia o valor quando o dado é nulo (próxima jogada)
     }
+    // ------------------------------------
 
-    // -------- Buttons logic --------
     const myTurn = (this.turn === this.nick);
     const isChoosingDestination = (this.step === "to" || this.step === "take");
     const mustSkip = (this.mustPass === this.nick || this.mustPass === true);
 
-    // se o jogo acabou -> tudo desligado
     if (this.winner !== null) {
       this.ui.setRollEnabled(false);
       this.ui.setSkipEnabled(false);
@@ -396,7 +381,6 @@ export class OnlineGame {
     const canPass = myTurn && mustSkip && !isChoosingDestination;
     this.ui.setSkipEnabled(!!canPass, () => this.pass());
 
-    // Highlights
     if ((this.step === "to" || this.step === "take") && Array.isArray(this.selected) && this.selected.length > 0) {
       const targets = this.selected
         .map((idx) => this.serverIndexToUI(idx))
@@ -413,7 +397,6 @@ export class OnlineGame {
       this.ui.markSelected(r, c);
     }
 
-    // Status (as 4 mensagens simples)
     if (!this.gameId) return;
 
     if (!myTurn) {
@@ -459,8 +442,6 @@ export class OnlineGame {
     return "—";
   }
 
-  // --------- COLOR / ROLE MAPPING ---------
-
   isInitialColor(serverPieceObj) {
     if (!this.players || !this.initial) {
       return String(serverPieceObj?.color) === "Blue";
@@ -468,8 +449,6 @@ export class OnlineGame {
     const initialColor = this.players[this.initial];
     return String(serverPieceObj?.color) === String(initialColor);
   }
-
-  // --------- INDEX MAPPING ---------
 
   serverIndexToUI(idx) {
     const size = this.size;

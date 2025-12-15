@@ -1,79 +1,76 @@
 // node/modules/updater.js
-const storage = require('./storage.js');
-
-// Guarda as conexões abertas: { "gameID": [response1, response2, ...] }
 const responses = {};
 
-function remember(gameId, response) {
-    if (!responses[gameId]) responses[gameId] = [];
-    responses[gameId].push(response);
-}
+module.exports.remember = function(response, gameId, nick) {
+    if (!gameId || !nick) return;
 
-function forget(gameId, response) {
-    if (!responses[gameId]) return;
-    responses[gameId] = responses[gameId].filter(r => r !== response);
-}
-
-// Endpoint GET /update?game=...&nick=...
-function handleUpdate(req, res, query) {
-    const gameId = query.game;
-
-    if (!gameId) {
-        res.writeHead(400);
-        res.end();
-        return;
-    }
-
-    // Configuração OBRIGATÓRIA para Server-Sent Events (SSE)
-    res.writeHead(200, {
+    // 1. Cabeçalhos OBRIGATÓRIOS para SSE funcionar
+    response.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*', // Importante para CORS
     });
 
-    // Mantém a conexão viva
-    remember(gameId, res);
-
-    // Se o cliente fechar a janela, removemos da lista
-    req.on('close', () => forget(gameId, res));
-    
-    // --- IMPORTANTE: Envia o estado atual imediatamente ao conectar ---
-    // Isto garante que o jogador recebe os dados assim que entra no jogo
-    const games = storage.getGames();
-    if (games[gameId]) {
-        sendUpdateToResponse(res, games[gameId]);
+    // 2. Inicializar lista se não existir
+    if (!responses[gameId]) {
+        responses[gameId] = [];
     }
-}
 
-// Função para notificar TODOS os jogadores de um jogo
-function notifyAll(gameId) {
+    // 3. Guardar a conexão
+    // Adicionamos o 'nick' para saber de quem é a ligação (útil para debug)
+    const connection = { response, nick, timestamp: Date.now() };
+    responses[gameId].push(connection);
+
+    // 4. EVITAR TIMEOUT (A parte mais importante!)
+    // O servidor da faculdade corta ligações após 1 min. Isto impede isso.
+    response.setTimeout(0); 
+
+    // 5. Limpar quando o cliente fecha o browser
+    response.on('close', () => {
+        if (responses[gameId]) {
+            responses[gameId] = responses[gameId].filter(c => c.response !== response);
+            if (responses[gameId].length === 0) {
+                delete responses[gameId];
+            }
+        }
+    });
+};
+
+module.exports.notifyAll = function(gameId) {
+    if (!responses[gameId]) return;
+
+    // Ler o estado atual do jogo para enviar
+    const storage = require('./storage.js');
     const games = storage.getGames();
     const game = games[gameId];
-    if (!game || !responses[gameId]) return;
 
-    // Envia o JSON atualizado para cada conexão aberta
-    responses[gameId].forEach(res => sendUpdateToResponse(res, game));
-}
+    if (!game) return;
 
-function sendUpdateToResponse(res, gameObj) {
-    // Formato SSE: "data: {json}\n\n"
-    res.write(`data: ${JSON.stringify(gameObj)}\n\n`);
-}
+    const data = JSON.stringify(game);
+    const message = `data: ${data}\n\n`; // Formato obrigatório SSE
 
-// --- NOVO: Keep-Alive para evitar timeouts ---
-// Envia um comentário vazio a cada 30 segundos para manter a ligação aberta
-setInterval(() => {
-    // Percorre todas as listas de respostas e envia um ping
-    for (const gameId in responses) {
-        const list = responses[gameId];
-        if (Array.isArray(list)) {
-            list.forEach(res => res.write(': keepalive\n\n'));
+    responses[gameId].forEach(client => {
+        try {
+            client.response.write(message);
+        } catch (e) {
+            console.log("Erro a enviar para cliente, removendo...", e.message);
         }
-    }
-}, 30000);
-
-module.exports = {
-    handleUpdate,
-    notifyAll
+    });
 };
+
+// --- HEARTBEAT / KEEP-ALIVE ---
+// Envia um comentário vazio a cada 20 segundos para manter a ligação aberta
+setInterval(() => {
+    for (const gameId in responses) {
+        responses[gameId].forEach(client => {
+            try {
+                // Comentários em SSE começam com ':' e são ignorados pelo browser,
+                // mas servem para dizer à rede "estou vivo!"
+                client.response.write(': keep-alive\n\n');
+            } catch (e) {
+                // Ignorar erros de escrita em conexões mortas
+            }
+        });
+    }
+}, 20000); // 20 segundos

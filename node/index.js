@@ -1,16 +1,15 @@
-// index.js
+// index.js - VERSÃO FINAL CORRIGIDA
 const http = require('http');
 const url = require('url');
-const fs = require('fs');
+// const fs = require('fs'); // Não precisas disto se usares os módulos
 
-// Importar os nossos módulos (que vamos criar a seguir)
 const auth = require('./modules/auth.js');
 const storage = require('./modules/storage.js');
 const ranking = require('./modules/ranking.js');
 const game = require('./modules/game.js'); 
 const updater = require('./modules/updater.js');
 
-const PORT = 8132; // Será 81XX no servidor da faculdade
+const PORT = 8132; // Confirma se é a tua porta
 const HEADERS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
@@ -18,21 +17,21 @@ const HEADERS = {
     'Content-Type': 'application/json'
 };
 
-// Inicializa o armazenamento (lê/cria ficheiros)
+// Inicializa o armazenamento
 storage.init();
 
 const server = http.createServer(async (req, res) => {
     const parsedUrl = url.parse(req.url, true);
     const pathname = parsedUrl.pathname;
 
-    // 1. Tratar CORS (Preflight requests)
+    // 1. Tratar CORS (Preflight)
     if (req.method === 'OPTIONS') {
         res.writeHead(204, HEADERS);
         res.end();
         return;
     }
 
-    // 2. Definir função auxiliar para enviar respostas JSON
+    // 2. Auxiliares de Resposta
     const sendJSON = (status, data) => {
         res.writeHead(status, HEADERS);
         res.end(JSON.stringify(data));
@@ -42,17 +41,16 @@ const server = http.createServer(async (req, res) => {
         sendJSON(status, { error: message });
     };
 
-    // 3. Recolher o Body do pedido (para POST)
+    // 3. Recolher Body
     let body = '';
     req.on('data', chunk => { body += chunk.toString(); });
     req.on('end', async () => {
         try {
             const data = body ? JSON.parse(body) : {};
 
-            // === ROUTER (Encaminhamento) ===
-            
+            // === ROUTER ===
             switch (pathname) {
-                // --- Objetivos Mínimos ---
+                // --- Auth & Ranking ---
                 case '/register':
                     auth.register(data, sendJSON, sendError);
                     break;
@@ -60,7 +58,7 @@ const server = http.createServer(async (req, res) => {
                     ranking.getRanking(data, sendJSON, sendError);
                     break;
 
-                // --- Valorização (Deixamos já preparado) ---
+                // --- Game Logic ---
                 case '/join':
                     game.join(data, sendJSON, sendError);
                     break;
@@ -77,10 +75,13 @@ const server = http.createServer(async (req, res) => {
                     game.pass(data, sendJSON, sendError);
                     break;
                 
-                // --- Update Stream (SSE) ---
+                // --- CORREÇÃO IMPORTANTE: Update Stream (SSE) ---
                 case '/update':
                     if (req.method === 'GET') {
-                        updater.handleUpdate(req, res, parsedUrl.query);
+                        // O nome correto da função é 'remember' e os argumentos são estes:
+                        const gameId = parsedUrl.query.game;
+                        const nick = parsedUrl.query.nick;
+                        updater.remember(res, gameId, nick);
                     } else {
                         sendError(405, 'Method Not Allowed');
                     }
@@ -97,6 +98,7 @@ const server = http.createServer(async (req, res) => {
     });
 });
 
-server.listen(PORT, () => {
+// --- CORREÇÃO FINAL: Escutar em 0.0.0.0 ---
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
 });
