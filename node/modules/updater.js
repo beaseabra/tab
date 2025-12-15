@@ -38,7 +38,8 @@ function handleUpdate(req, res, query) {
     // Se o cliente fechar a janela, removemos da lista
     req.on('close', () => forget(gameId, res));
     
-    // Envia o estado atual imediatamente ao conectar (se o jogo existir)
+    // --- IMPORTANTE: Envia o estado atual imediatamente ao conectar ---
+    // Isto garante que o jogador recebe os dados assim que entra no jogo
     const games = storage.getGames();
     if (games[gameId]) {
         sendUpdateToResponse(res, games[gameId]);
@@ -59,6 +60,18 @@ function sendUpdateToResponse(res, gameObj) {
     // Formato SSE: "data: {json}\n\n"
     res.write(`data: ${JSON.stringify(gameObj)}\n\n`);
 }
+
+// --- NOVO: Keep-Alive para evitar timeouts ---
+// Envia um comentário vazio a cada 30 segundos para manter a ligação aberta
+setInterval(() => {
+    // Percorre todas as listas de respostas e envia um ping
+    for (const gameId in responses) {
+        const list = responses[gameId];
+        if (Array.isArray(list)) {
+            list.forEach(res => res.write(': keepalive\n\n'));
+        }
+    }
+}, 30000);
 
 module.exports = {
     handleUpdate,

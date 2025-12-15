@@ -1,23 +1,48 @@
-// modules/ranking.js
+// node/modules/ranking.js
 const storage = require('./storage.js');
 
 function getRanking(data, sendJSON, sendError) {
-    // O enunciado diz que a tabela vem de dados persistidos.
-    // Vamos assumir que guardamos vitórias nos utilizadores ou processamos os jogos.
-    // Para simplificar a Fase 1, vou enviar um ranking estático ou baseado numa estrutura simples.
+    const { group, size } = data;
+
+    // --- VALIDAÇÃO ---
+    // O enunciado diz que há tabelas distintas, por isso precisamos saber qual mostrar.
+    if (group === undefined || typeof group !== 'number') {
+        return sendError(400, 'Invalid group');
+    }
+    if (size === undefined || (!Number.isInteger(size) || size <= 0)) {
+        return sendError(400, 'Invalid size');
+    }
+    // -----------------
+
+    const users = storage.getUsers();
+    const ranking = [];
     
-    // NOTA: Precisaremos de lógica para atualizar vitórias quando o jogo acaba (game.js).
-    // Por agora, retorna lista vazia ou mock para testar.
-    
-    const rankingData = []; 
-    // Exemplo: iterar storage.users e ver quem tem mais vitórias (se guardarmos isso)
-    
-    // O formato esperado pelo OnlineGame.js e ServerAPI é:
-    // { ranking: [ { nick: "...", victories: 10, games: 12 }, ... ] }
-    
-    sendJSON(200, { ranking: rankingData });
+    // A chave tem de bater certo com a que usámos no game.js (ex: "32-9")
+    const key = `${group}-${size}`; 
+
+    for (const nick in users) {
+        const user = users[nick];
+        
+        // Só adicionamos à lista se o user tiver estatísticas PARA ESTE GRUPO/TAMANHO
+        // (Ignoramos users antigos que sejam só strings ou que não tenham jogado neste modo)
+        if (typeof user !== 'string' && user.stats && user.stats[key]) {
+            ranking.push({
+                nick: nick,
+                victories: user.stats[key].victories,
+                games: user.stats[key].games
+            });
+        }
+    }
+
+    // Ordenar: Mais vitórias primeiro. 
+    // (Opcional: em caso de empate, quem tem menos jogos fica à frente)
+    ranking.sort((a, b) => {
+        if (b.victories !== a.victories) return b.victories - a.victories;
+        return a.games - b.games;
+    });
+
+    // Retorna apenas os Top 10 para não sobrecarregar
+    sendJSON(200, { ranking: ranking.slice(0, 10) });
 }
 
-module.exports = {
-    getRanking
-};
+module.exports = { getRanking };

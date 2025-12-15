@@ -1,5 +1,4 @@
-// js/UIManager.js
-
+// js/UIManager.js - VERSÃO CORRIGIDA
 export class UIManager {
   constructor() {
     // Seleciona todos os elementos do DOM
@@ -26,12 +25,12 @@ export class UIManager {
     this.aiLevelSelect = document.getElementById("aiLevel");
     this.aiLevelGroup = document.getElementById("aiLevelGroup");
 
-    // Login visual(não funcional)
+    // Login - CORRIGIDO com os novos IDs
     this.loginBtn = document.querySelector(".login-btn");
     this.logoutBtn = document.querySelector(".logout-btn");
     this.loginForm = document.querySelector(".login-form");
-    this.userInput = document.querySelector(".user-input");
-    this.passInput = document.querySelector(".pass-input");
+    this.userInput = document.getElementById("username-input"); // ✅ NOVO ID
+    this.passInput = document.getElementById("password-input"); // ✅ NOVO ID
     this.welcomeText = document.querySelector(".welcome-text");
 
     // Leaderboard
@@ -110,7 +109,7 @@ export class UIManager {
       const nick = (this.userInput?.value || "").trim();
       const pass = (this.passInput?.value || "").trim();
       if (!nick || !pass) {
-        this.addMessage("System", "Preenche user e password.");
+        this.addMessage("System", "❌ Preenche user e password.");
         return;
       }
 
@@ -120,7 +119,7 @@ export class UIManager {
         this.setAuthUI(true, nick);
         this.loginForm.classList.add("hidden");
       } catch (e) {
-        this.addMessage("System", `Login falhou: ${e.message || e}`);
+        this.addMessage("System", `❌ Login falhou: ${e.message || e}`);
       } finally {
         this.loginBtn.disabled = false;
       }
@@ -185,12 +184,15 @@ export class UIManager {
         div.className = "cell";
         div.dataset.row = r;
         div.dataset.col = c;
+        div.setAttribute("role", "gridcell");
+        div.setAttribute("aria-label", `Row ${r + 1}, Column ${c + 1}`);
         
         // Se houver peça (objeto)
         if (cell?.player) {
           const piece = document.createElement("div");
           piece.classList.add("chip", cell.player === "G" ? "gold" : "black");
           if (cell.type) piece.classList.add(cell.type);
+          piece.setAttribute("aria-label", `${cell.player === "G" ? "Gold" : "Black"} piece`);
           div.appendChild(piece);
         }
 
@@ -203,7 +205,6 @@ export class UIManager {
     document.querySelectorAll(".status-bar span").forEach(el => el.classList.remove("active"));
     const active = currentPlayer === "G" ? this.goldCounter : this.blackCounter;
     active?.classList.add("active");
-    
   }
 
   // Destaques no tabuleiro
@@ -275,7 +276,6 @@ export class UIManager {
   }
 
   // Visibilidade do nível de IA
-  // Visibilidade do nível de IA
   updateAIVisibility() {
     const isPVC = this.modeSelect.value === "pvc";
 
@@ -335,7 +335,6 @@ export class UIManager {
     }
   }
 
-
   refreshRollButton(game) {
     const can =
       !game.gameOver &&
@@ -344,5 +343,4 @@ export class UIManager {
 
     this.setRollEnabled(can);
   }
-
 }

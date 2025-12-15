@@ -12,8 +12,8 @@ export class OnlineGame {
     this.ui = ui;
     this.rows = 4;
 
-    this.serverUrl = opts.serverUrl || "http://twserver.alunos.dcc.fc.up.pt:8008";
-    this.group = Number.isInteger(opts.group) ? opts.group : 81;
+    this.serverUrl = opts.serverUrl || "http://twserver.alunos.dcc.fc.up.pt:8132";
+    this.group = Number.isInteger(opts.group) ? opts.group : 32;
     this.api = new ServerAPI(this.serverUrl);
 
     this.nick = null;
@@ -269,7 +269,11 @@ export class OnlineGame {
     if (Array.isArray(data.selected)) this.selected = data.selected;
     if ("cell" in data) this.lastCell = data.cell;
     if ("players" in data && data.players) this.players = data.players;
-    if (typeof data.winner === "string" || data.winner === null) this.winner = data.winner;
+    
+    // Atualiza winner, mas NÃO acaba o jogo se for null
+    if (typeof data.winner === "string" || data.winner === null) {
+      this.winner = data.winner;
+    }
 
     if (this.initial) {
       this.viewRotated = (this.nick !== this.initial);
@@ -285,28 +289,21 @@ export class OnlineGame {
 
     this.render();
 
-    // ✅ se o jogo acabou, trava tudo e fecha stream
-    if ("winner" in data) {
-      if (typeof data.winner === "string" || data.winner === null) {
+    // ✅ CORREÇÃO: se o jogo acabou (tem um vencedor definido e NÃO é null), trava tudo
+    if ("winner" in data && data.winner !== null && data.winner !== undefined) {
+      
+      this.statusOnce(`Game ended. Winner: ${data.winner}`);
 
-        if (typeof data.winner === "string") {
-          const stillHasPieces = Array.isArray(this.pieces) && this.pieces.some(p => p !== null);
-          this.statusOnce(`Game ended. Winner: ${data.winner}`);
-        } else {
-          this.statusOnce("Game ended.");
-        }
+      // bloqueia UI/estado para evitar cliques mortos e erros
+      this.ui.setRollEnabled(false);
+      this.ui.setSkipEnabled(false);
+      this.step = "from";
+      this.dice = null;
+      this.mustPass = null;
+      this.selected = null;
+      this.lastCell = null;
 
-        // bloqueia UI/estado para evitar cliques mortos e erros
-        this.ui.setRollEnabled(false);
-        this.ui.setSkipEnabled(false);
-        this.step = "from";
-        this.dice = null;
-        this.mustPass = null;
-        this.selected = null;
-        this.lastCell = null;
-
-        this.closeStream();
-      }
+      this.closeStream();
     }
   }
 

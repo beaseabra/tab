@@ -1,4 +1,4 @@
-// node/modules/game.js - CÓDIGO FINAL E CORRIGIDO
+// node/modules/game.js
 const crypto = require('crypto');
 const storage = require('./storage.js');
 const updater = require('./updater.js');
@@ -6,7 +6,6 @@ const updater = require('./updater.js');
 // --- FUNÇÕES AUXILIARES ---
 
 function createBoard(size) {
-    // Cria array com o tamanho TOTAL (4 * size) preenchido com null
     const totalCells = 4 * size;
     const board = Array(totalCells).fill(null);
 
@@ -122,13 +121,63 @@ function isValidUser(nick, password) {
     const users = storage.getUsers();
     if (!users[nick]) return false;
     const hash = crypto.createHash('md5').update(password).digest('hex');
-    return users[nick] === hash;
+    
+    // Suporta formato antigo (string) e novo (objeto com stats)
+    const storedPass = (typeof users[nick] === 'string') ? users[nick] : users[nick].password;
+    return storedPass === hash;
+}
+
+// --- ATUALIZAÇÃO DO RANKING (Corrigido para Group/Size) ---
+function updateUserStats(winnerNick, loserNick, group, size) {
+    const users = storage.getUsers();
+    const key = `${group}-${size}`; // Chave única para o ranking deste grupo/tamanho
+
+    // Função auxiliar para converter string em objeto e garantir estrutura
+    const ensureUserStats = (nick) => {
+        if (typeof users[nick] === 'string') {
+            users[nick] = { password: users[nick], stats: {} };
+        } else if (!users[nick].stats) {
+            users[nick].stats = {};
+        }
+        // Inicializa a entrada para este grupo/tamanho se não existir
+        if (!users[nick].stats[key]) {
+            users[nick].stats[key] = { victories: 0, games: 0 };
+        }
+    };
+
+    // Atualiza vencedor
+    if (users[winnerNick]) {
+        ensureUserStats(winnerNick);
+        users[winnerNick].stats[key].victories++;
+        users[winnerNick].stats[key].games++;
+    }
+
+    // Atualiza perdedor
+    if (users[loserNick]) {
+        ensureUserStats(loserNick);
+        users[loserNick].stats[key].games++;
+    }
+
+    storage.saveUsers();
 }
 
 // --- API ---
 
 function join(data, sendJSON, sendError) {
     const { group, nick, password, size } = data;
+
+    // --- VALIDAÇÕES ESTRITAS ---
+    if (typeof nick !== 'string' || typeof password !== 'string') {
+        return sendError(400, 'Invalid credentials format');
+    }
+    if (typeof group !== 'number') {
+        return sendError(400, 'Invalid group: must be a number');
+    }
+    if (!Number.isInteger(size) || size <= 0) {
+        return sendError(400, 'Invalid size: must be a positive integer');
+    }
+    // ---------------------------
+
     if (!isValidUser(nick, password)) return sendError(401, "Auth failed");
 
     const games = storage.getGames();
@@ -158,11 +207,18 @@ function join(data, sendJSON, sendError) {
     }
     storage.saveGames();
     updater.notifyAll(gameId);
-    sendJSON(200, { game: gameId }); // <--- O IMPORTANTE ESTÁ AQUI
+    sendJSON(200, { game: gameId }); 
 }
 
 function leave(data, sendJSON, sendError) {
     const { nick, password, game: gameId } = data;
+
+    // --- VALIDAÇÃO ---
+    if (typeof nick !== 'string' || typeof password !== 'string' || typeof gameId !== 'string') {
+        return sendError(400, 'Invalid request format');
+    }
+    // -----------------
+
     if (!isValidUser(nick, password)) return sendError(401, "Auth failed");
     const games = storage.getGames();
     const game = games[gameId];
@@ -171,6 +227,10 @@ function leave(data, sendJSON, sendError) {
     const opponent = Object.keys(game.players).find(p => p !== nick);
     game.winner = opponent || nick; 
     game.state = "ended";
+    
+    // Atualiza Ranking (Passando group e size)
+    updateUserStats(game.winner, nick, game.group, game.size);
+
     storage.saveGames();
     updater.notifyAll(gameId);
     sendJSON(200, {});
@@ -178,6 +238,13 @@ function leave(data, sendJSON, sendError) {
 
 function roll(data, sendJSON, sendError) {
     const { nick, password, game: gameId } = data;
+
+    // --- VALIDAÇÃO ---
+    if (typeof nick !== 'string' || typeof password !== 'string' || typeof gameId !== 'string') {
+        return sendError(400, 'Invalid request format');
+    }
+    // -----------------
+
     if (!isValidUser(nick, password)) return sendError(401, "Auth failed");
     const games = storage.getGames();
     const game = games[gameId];
@@ -208,6 +275,16 @@ function roll(data, sendJSON, sendError) {
 
 function notify(data, sendJSON, sendError) {
     const { nick, password, game: gameId, cell } = data;
+
+    // --- VALIDAÇÃO ---
+    if (typeof nick !== 'string' || typeof password !== 'string' || typeof gameId !== 'string') {
+        return sendError(400, 'Invalid request format');
+    }
+    if (cell === undefined || cell === null || isNaN(Number(cell))) {
+        return sendError(400, 'Invalid cell');
+    }
+    // -----------------
+
     if (!isValidUser(nick, password)) return sendError(401, "Auth failed");
     const games = storage.getGames();
     const game = games[gameId];
@@ -250,7 +327,12 @@ function notify(data, sendJSON, sendError) {
 
         game.step = "from"; game.selected = []; game.lastCell = null;
         const winner = checkWin(game);
-        if (winner) { game.winner = winner; game.state = "ended"; }
+        if (winner) { 
+            game.winner = winner; 
+            game.state = "ended";
+            // Atualiza Ranking (Passando group e size)
+            updateUserStats(winner, getOpponentNick(game), game.group, game.size);
+        }
         else { if (!game.dice.keepPlaying) game.turn = getOpponentNick(game); game.dice = null; }
         
         storage.saveGames();
@@ -261,6 +343,13 @@ function notify(data, sendJSON, sendError) {
 
 function pass(data, sendJSON, sendError) {
     const { nick, password, game: gameId } = data;
+
+    // --- VALIDAÇÃO ---
+    if (typeof nick !== 'string' || typeof password !== 'string' || typeof gameId !== 'string') {
+        return sendError(400, 'Invalid request format');
+    }
+    // -----------------
+
     if (!isValidUser(nick, password)) return sendError(401, "Auth failed");
     const games = storage.getGames();
     const game = games[gameId];

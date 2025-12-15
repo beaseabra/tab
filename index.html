@@ -13,20 +13,34 @@
     <!-- Authentication area in top-right -->
     <div class="auth-mini card">
       <h3>Authentication</h3>
-      <form class="login-form hidden">
-        <input type="text" placeholder="User" class="user-input" >
-        <input type="password" placeholder="Password" class="pass-input">
+      <form class="login-form hidden" autocomplete="on">
+        <input 
+          type="text" 
+          id="username-input"
+          name="username"
+          placeholder="User" 
+          class="user-input"
+          autocomplete="username"
+          aria-label="Username"
+        >
+        <input 
+          type="password" 
+          id="password-input"
+          name="password"
+          placeholder="Password" 
+          class="pass-input"
+          autocomplete="current-password"
+          aria-label="Password"
+        >
       </form>
 
       <div class="auth-buttons">
-        <button class="login-btn">Log In</button>
-        <button class="logout-btn" disabled>Log Out</button>
+        <button class="login-btn" type="button" >Log In</button>
+        <button class="logout-btn" type="button" disabled >Log Out</button>
       </div>
 
-      <p class="welcome-text hidden"></p>
+      <p class="welcome-text hidden" aria-live="polite"></p>
     </div>
-
-
 
     <div class="logo-symbol">✕</div>
     <h1>Tâb — The Ancient Egyptian Board Game</h1>
@@ -34,7 +48,6 @@
     <a class="cta-btn" id="goToConfigBtn" href="#configurations" role="button">
       Go To Configurations
     </a>
-
   </header>
 
   <main>
@@ -47,7 +60,7 @@
           <details data-rule="objective">
           <summary>Objective</summary>
           <p>
-            Win the game by capturing all of your opponent’s pieces or being the
+            Win the game by capturing all of your opponent's pieces or being the
             last player with pieces remaining on the board.
           </p>
         </details>
@@ -94,7 +107,7 @@
           <div>
             <ul>
               <li>
-                A piece’s <strong>first move</strong> can only be made with a
+                A piece's <strong>first move</strong> can only be made with a
                 roll = 1 (Tâb). If the player rolls another value, that piece
                 cannot move yet.
               </li>
@@ -155,12 +168,12 @@
         </div>
 
         <!-- Rule push-up -->
-        <div id="ruleOverlay" class="rule-overlay hidden">
+        <div id="ruleOverlay" class="rule-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="ruleTitle">
           <div class="rule-popup card">
-            <button class="close-rule">← Back to Rules</button>
+            <button class="close-rule" aria-label="Close rule details">← Back to Rules</button>
             <h2 id="ruleTitle" aria-live="polite"></h2>
             <div id="ruleText"></div>
-            <video id="ruleVideoModal" controls>
+            <video id="ruleVideoModal" controls aria-label="Rule explanation video">
               <source src="about:blank" type="video/mp4">
               Your browser does not support the video tag.
             </video>
@@ -180,18 +193,18 @@
           <h2>Configuration</h2>
 
           <label for="boardSize">Board size (odd 7–15)
-            <input id="boardSize" type="number" min="7" max="15" step="2" value="9">
+            <input id="boardSize" name="board-size" type="number" min="7" max="15" step="2" value="9" aria-label="Board size">
           </label>
 
           <label for="modeSelect">Mode
-            <select id="modeSelect">
+            <select id="modeSelect" name="game-mode" aria-label="Game mode">
               <option value="pvp_online">Player vs Player</option>
               <option value="pvc">Player vs Computer</option>
             </select>
           </label>
 
           <label for="firstSelect">First to play
-            <select id="firstSelect">
+            <select id="firstSelect" name="first-player" aria-label="First player">
               <option value="Gold">Gold</option>
               <option value="Black">Black</option>
             </select>
@@ -200,7 +213,7 @@
           <!-- Extra options only available in ailevel -->
           <label for="aiLevel" id="aiLevelGroup">
             AI Level
-            <select id="aiLevel">
+            <select id="aiLevel" name="ai-level" aria-label="AI difficulty level">
               <option value="Easy">Easy</option>
               <option value="Medium" selected>Medium</option>
               <option value="Hard">Hard</option>
@@ -216,14 +229,14 @@
         <div class="classifications card">
           <h2>Classifications</h2>
           <p>View all recorded games and results.</p>
-          <button class="cta-btn" id="openClassificationsBtn">See Classifications</button>
+          <button class="cta-btn" id="openClassificationsBtn" type="button">See Classifications</button>
         </div>
 
         <!-- Popup for all classifications -->
-        <div id="classificationsOverlay" class="classifications-overlay hidden">
+        <div id="classificationsOverlay" class="classifications-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="classificationsTitle">
           <div class="classifications-popup card">
-            <button class="close-classifications">← Back to Menu</button>
-            <h2>Classifications</h2>
+            <button class="close-classifications" aria-label="Close classifications">← Back to Menu</button>
+            <h2 id="classificationsTitle">Classifications</h2>
             <div id="classificationsTableContainer"></div>
           </div>
         </div>
@@ -236,30 +249,29 @@
       <!-- Left: Sticks -->
       <div class="sticks-area card">
         <h2>Throw Sticks</h2>
-        <div class="sticks">⎮⎮⎮⎮</div>
-        <p class="result">Result: —</p>
-        <button class="throw-btn">Throw</button>
+        <div class="sticks" aria-live="polite" aria-label="Stick throw result">⎮⎮⎮⎮</div>
+        <p class="result" aria-live="polite">Result: —</p>
+        <button class="throw-btn" type="button">Throw</button>
       </div>
 
       <!-- Center: Board -->
       <div class="board-area card">
-        <div class="status-bar">
+        <div class="status-bar" aria-live="polite">
           <span class="gold-player">Gold: 3</span>
           <span class="black-player">Black: 5</span>
         </div>
 
-        
-        <div class="board"></div>
+        <div class="board" role="grid" aria-label="Game board"></div>
         <div class="actions">
-          <button class="quit-btn">Quit</button>
-          <button class="skip-btn" disabled>Skip Turn</button>
+          <button class="quit-btn" type="button">Quit</button>
+          <button class="skip-btn" type="button" disabled>Skip Turn</button>
         </div>
       </div>
 
       <!-- Right: Messages -->
       <div class="messages card">
         <h2>Messages</h2>
-        <div class="chat">
+        <div class="chat" role="log" aria-live="polite" aria-relevant="additions">
           <p><strong>System:</strong> Game initialized.</p>
           <p><strong>Gold:</strong> I start!</p>
           <p><strong>Black:</strong> Good luck!</p>
@@ -268,7 +280,7 @@
     </section>
 
     <!-- Overlay animation for sticks when throwing -->
-    <div id="sticks-overlay" class="sticks-overlay hidden">
+    <div id="sticks-overlay" class="sticks-overlay hidden" role="alert" aria-live="assertive">
       <div class="sticks-big">⎮⎮⎮⎮</div>
       <p class="sticks-result">Result: —</p>
     </div>

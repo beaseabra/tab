@@ -10,7 +10,7 @@ const ranking = require('./modules/ranking.js');
 const game = require('./modules/game.js'); 
 const updater = require('./modules/updater.js');
 
-const PORT = 8100; // Será 81XX no servidor da faculdade
+const PORT = 8132; // Será 81XX no servidor da faculdade
 const HEADERS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
